@@ -6,6 +6,7 @@
   (:require [clojure.string :as str]
             [honeysql.core :as hsql]
             [medley.core :as m]
+            [clojure.tools.logging :as log]
             [metabase.driver :as driver]
             [metabase.models.field :as field :refer [Field]]
             [metabase.driver.generic-sql :as sql]
@@ -14,6 +15,8 @@
             [metabase.util
              [date :as du]
              [schema :as su]]
+            [metabase
+             [util :as u]]
             [puppetlabs.i18n.core :refer [tru]]
             [schema.core :as s]
             [toucan.db :as db])
@@ -151,7 +154,6 @@
        first
        vec) matching-params)))
 
-
 ;;; Dimension Params (Field Filters) (e.g. WHERE {{x}})
 
 (s/defn ^:private default-value-for-dimension :- (s/maybe DimensionValue)
@@ -179,7 +181,6 @@
                              ;; if not, check and see if we have a default param
                              (default-value-for-dimension tag))})))
 
-
 ;;; Non-Dimension Params (e.g. WHERE x = {{x}})
 
 (s/defn ^:private param-value-for-tag [tag :- TagParam, params :- (s/maybe [DimensionValue])]
@@ -194,7 +195,6 @@
   (or default
       (when required
         (throw (Exception. (format "'%s' is a required param." display_name))))))
-
 
 ;;; Parsing Values
 
@@ -251,7 +251,7 @@
                                         ;; TODO - what if value is specified but is `nil`?
                                         (NoValue.))))
 
-(s/defn ^:private query->params-map :- ParamValues
+(s/defn query->params-map :- ParamValues
   "Extract parameters info from QUERY. Return a map of parameter name -> value.
 
      (query->params-map some-query)
@@ -268,7 +268,6 @@
              ;; kind of query shouldn't be possible from the frontend anyway
              {k v})))
 
-
 ;;; +----------------------------------------------------------------------------------------------------------------+
 ;;; |                                            PARAM->SQL SUBSTITUTION                                             |
 ;;; +----------------------------------------------------------------------------------------------------------------+
@@ -282,11 +281,10 @@
 (defprotocol ^:private ISQLParamSubstituion
   "Protocol for specifying what SQL should be generated for parameters of various types."
   (^:private ->replacement-snippet-info [this]
-   "Return information about how THIS should be converted to SQL, as a map with keys `:replacement-snippet` and
+    "Return information about how THIS should be converted to SQL, as a map with keys `:replacement-snippet` and
    `:prepared-statement-args`.
 
       (->replacement-snippet-info \"ABC\") -> {:replacement-snippet \"?\", :prepared-statement-args \"ABC\"}"))
-
 
 (defn- relative-date-param-type? [param-type]
   (contains? #{"date/range" "date/month-year" "date/quarter-year" "date/relative" "date/all-options"} param-type))
@@ -502,7 +500,7 @@
     (if-let [{:keys [param-key]} (m/find-first no-value-param? results)]
       (throw (ex-info (tru "Unable to substitute ''{0}'': param not specified.\nFound: {1}"
                            (name param-key) (pr-str (map name (keys param-key->value))))
-               {:status-code 400}))
+                      {:status-code 400}))
       results)))
 
 (defn- parse-optional
@@ -528,6 +526,8 @@
 
 (s/defn ^:private expand-query-params
   [{sql :query, :as native}, param-key->value :- ParamValues]
+  (log/info (u/format-color 'red "begin expand-query-params:\n%s" native))
+  (log/info (u/format-color 'red "begin expand-query-params:\n%s" param-key->value))
   (merge native (parse-template sql param-key->value)))
 
 (defn- ensure-driver
@@ -537,6 +537,35 @@
   (or driver
       (driver/database-id->driver database)
       (throw (IllegalArgumentException. "Could not resolve driver"))))
+
+(defn- replace_druid_params [sql key value type]
+  (log/info (u/format-color 'red "begin replace_druid_params: sql:%s" sql))
+  (log/info (u/format-color 'red "begin replace_druid_params: key:%s" key))
+  (log/info (u/format-color 'red "begin replace_druid_params: value:%s" value))
+  (log/info (u/format-color 'red "begin replace_druid_params: type:%s" type))
+  (case type
+    "date/range" (str/replace sql (format "{{%s}}" key) (str/replace value "~" "/"))
+    (str/replace sql (format "{{%s}}" key) value)))
+
+(s/defn parse-druid-template [sql param-key->value]
+  (let [ori_query {:query sql}]
+    ; (assoc ori_query :query (replace_druid_params (get-in ori_query [:query]) "countrynn" "Russia" "location/country"))))
+    (reduce-kv (fn [m k v]
+                (let [new-query (replace_druid_params (get-in m [:query]) (name k) (get-in v [:param :value]) (get-in v [:param :type]))]
+                  (log/info (u/format-color 'red "after replace_druid_params: new-query:%s" new-query))
+                  (assoc m :query new-query))) ori_query param-key->value)))
+  
+(s/defn ^:private expand-druid-query-params
+  [{sql :query, :as native}, param-key->value]
+  (log/info (u/format-color 'red "begin expand-druid-query-params:\n%s" native))
+  (log/info (u/format-color 'red "begin expand-druid-query-params:\n%s" param-key->value))
+  (let [parse-res (parse-druid-template sql param-key->value)]
+    (log/info (u/format-color 'red "after parse-druid-template: parse-res:%s" parse-res))
+    (merge native parse-res)))
+
+(defn expand-druid
+  [query-dict]
+  (update query-dict :native expand-druid-query-params (query->params-map query-dict)))
 
 (defn expand
   "Expand parameters inside a *SQL* QUERY."

@@ -132,7 +132,7 @@
     ;; aggregation clauses w/o a field
     (do (assert (or (= aggregation-type :count)
                     (= aggregation-type :cumulative-count))
-          (format "Aggregations of type '%s' must specify a field." aggregation-type))
+                (format "Aggregations of type '%s' must specify a field." aggregation-type))
         :%count.*)
     ;; aggregation clauses w/ a Field
     (hsql/call (case aggregation-type
@@ -143,20 +143,20 @@
                  :sum      :sum
                  :min      :min
                  :max      :max)
-      (->honeysql driver field))))
+               (->honeysql driver field))))
 
 ;; TODO - can't we just roll this into the ->honeysql method for `expression`?
 (defn expression-aggregation->honeysql
   "Generate the HoneySQL form for an expression aggregation."
   [driver expression]
   (->honeysql driver
-    (update expression :args
-            (fn [args]
-              (for [arg args]
-                (cond
-                  (number? arg)           arg
-                  (:aggregation-type arg) (aggregation->honeysql driver (:aggregation-type arg) (:field arg))
-                  (:operator arg)         (expression-aggregation->honeysql driver arg)))))))
+              (update expression :args
+                      (fn [args]
+                        (for [arg args]
+                          (cond
+                            (number? arg)           arg
+                            (:aggregation-type arg) (aggregation->honeysql driver (:aggregation-type arg) (:field arg))
+                            (:operator arg)         (expression-aggregation->honeysql driver arg)))))))
 
 ;; e.g. the ["aggregation" 0] fields we allow in order-by
 (defmethod ->honeysql [Object AgFieldRef]
@@ -282,9 +282,9 @@
   [_ honeysql-form {join-tables :join-tables, {source-table-name :name, source-schema :schema} :source-table}]
   (loop [honeysql-form honeysql-form, [{:keys [table-name pk-field source-field schema join-alias]} & more] join-tables]
     (let [honeysql-form (h/merge-left-join honeysql-form
-                          [(hx/qualify-and-escape-dots schema table-name) (keyword join-alias)]
-                          [:= (hx/qualify-and-escape-dots source-schema source-table-name (:field-name source-field))
-                              (hx/qualify-and-escape-dots join-alias                      (:field-name pk-field))])]
+                                           [(hx/qualify-and-escape-dots schema table-name) (keyword join-alias)]
+                                           [:= (hx/qualify-and-escape-dots source-schema source-table-name (:field-name source-field))
+                                            (hx/qualify-and-escape-dots join-alias                      (:field-name pk-field))])]
       (if (seq more)
         (recur honeysql-form more)
         honeysql-form))))
@@ -325,11 +325,11 @@
 (defn- apply-source-query [driver honeysql-form {{:keys [native], :as source-query} :source-query}]
   ;; TODO - what alias should we give the source query?
   (assoc honeysql-form
-    :from [[(if native
-              (hsql/raw (str "(" (str/replace native #";+\s*$" "") ")")) ; strip off any trailing slashes
-              (binding [*nested-query-level* (inc *nested-query-level*)]
-                (apply-clauses driver {} source-query)))
-            :source]]))
+         :from [[(if native
+                   (hsql/raw (str "(" (str/replace native #";+\s*$" "") ")")) ; strip off any trailing slashes
+                   (binding [*nested-query-level* (inc *nested-query-level*)]
+                     (apply-clauses driver {} source-query)))
+                 :source]]))
 
 (def ^:private clause-handlers
   ;; 1) Use the vars rather than the functions themselves because them implementation
@@ -360,14 +360,13 @@
         ;; in
         (update honeysql-form :select #(if (seq %) % [:*]))))))
 
-
 (defn build-honeysql-form
   "Build the HoneySQL form we will compile to SQL and execute."
   [driverr {inner-query :query}]
   {:pre [(map? inner-query)]}
   (u/prog1 (apply-clauses driverr {} inner-query)
-    (when-not i/*disable-qp-logging*
-      (log/debug "HoneySQL Form: 🍯\n" (u/pprint-to-str 'cyan <>)))))
+           (when-not i/*disable-qp-logging*
+             (log/debug "HoneySQL Form: 🍯\n" (u/pprint-to-str 'cyan <>)))))
 
 (defn mbql->native
   "Transpile MBQL query into a native SQL statement."
@@ -467,6 +466,8 @@
     (with-open [^PreparedStatement stmt (jdbc/prepare-statement conn sql opts)]
       ;; Need to run the query in another thread so that this thread can cancel it if need be
       (try
+        (log/info (u/format-color 'red "begin cancellable-run-query sql:\n%s" sql))
+        (log/info (u/format-color 'red "begin cancellable-run-query params:\n%s" params))
         (let [query-future (future (jdbc/query conn (into [stmt] params) opts))]
           ;; This thread is interruptable because it's awaiting the other thread (the one actually running the
           ;; query). Interrupting this thread means that the client has disconnected (or we're shutting down) and so
@@ -487,8 +488,8 @@
         [columns & rows] (cancellable-run-query connection sql params {:identifiers    identity, :as-arrays? true
                                                                        :read-columns   (read-columns-with-date-handling timezone)
                                                                        :set-parameters (set-parameters-with-timezone timezone)})]
-       {:rows    (or rows [])
-        :columns columns}))
+    {:rows    (or rows [])
+     :columns columns}))
 
 (defn- exception->nice-error-message ^String [^SQLException e]
   (or (->> (.getMessage e)     ; error message comes back like 'Column "ZID" not found; SQL statement: ... [error-code]' sometimes
@@ -528,7 +529,7 @@
   "Set the timezone for the current connection."
   [driver settings connection]
   (let [timezone      (u/prog1 (:report-timezone settings)
-                        (assert (re-matches #"[A-Za-z\/_]+" <>)))
+                               (assert (re-matches #"[A-Za-z\/_]+" <>)))
         format-string (sql/set-timezone-sql driver)
         sql           (format format-string (str \' timezone \'))]
     (log/debug (u/format-color 'green "Setting timezone with statement: %s" sql))
@@ -551,14 +552,13 @@
       (log/error (trs "Failed to set timezone:") "\n" (.getMessage e))
       (run-query-without-timezone driver settings connection query))))
 
-
 (defn execute-query
   "Process and run a native (raw SQL) QUERY."
   [driver {:keys [database settings], query :native, :as outer-query}]
   (let [query (assoc query :remark (qputil/query->remark outer-query))]
     (do-with-try-catch
-      (fn []
-        (let [db-connection (sql/db->jdbc-connection-spec database)]
-          ((if (seq (:report-timezone settings))
-             run-query-with-timezone
-             run-query-without-timezone) driver settings db-connection query))))))
+     (fn []
+       (let [db-connection (sql/db->jdbc-connection-spec database)]
+         ((if (seq (:report-timezone settings))
+            run-query-with-timezone
+            run-query-without-timezone) driver settings db-connection query))))))

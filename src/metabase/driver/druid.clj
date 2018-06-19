@@ -40,13 +40,11 @@
 (def ^:private ^{:arglists '([url & {:as options}])} POST (partial do-request http/post))
 (def ^:private ^{:arglists '([url & {:as options}])} DELETE (partial do-request http/delete))
 
-
 ;;; ### Misc. Driver Fns
 
 (defn- can-connect? [details]
   (ssh/with-ssh-tunnel [details-with-tunnel details]
     (= 200 (:status (http/get (details->url details-with-tunnel "/status"))))))
-
 
 ;;; ### Query Processing
 
@@ -54,14 +52,16 @@
   {:pre [(map? query)]}
   (ssh/with-ssh-tunnel [details-with-tunnel details]
     (try
+      (log/info (u/format-color 'red "do query:\n%s" query))
+      (log/info (u/format-color 'red "do query:\n%s" details))
       (POST (details->url details-with-tunnel "/druid/v2"), :body query)
       (catch Throwable e
         ;; try to extract the error
         (let [message (or (u/ignore-exceptions
-                            (when-let [body (json/parse-string (:body (:object (ex-data e))) keyword)]
-                              (str (:error body) "\n"
-                                   (:errorMessage body) "\n"
-                                   "Error class:" (:errorClass body))))
+                           (when-let [body (json/parse-string (:body (:object (ex-data e))) keyword)]
+                             (str (:error body) "\n"
+                                  (:errorMessage body) "\n"
+                                  "Error class:" (:errorClass body))))
                           (.getMessage e))]
           (log/error (u/format-color 'red "Error running query:\n%s" message))
           ;; Re-throw a new exception with `message` set to the extracted message
@@ -89,7 +89,6 @@
               (finally
                 ;; Propogate the exception, will cause any other catch/finally clauses to fire
                 (throw interrupted-ex)))))))))
-
 
 ;;; ### Sync
 
@@ -136,7 +135,6 @@
       {:tables (set (for [table-name druid-datasources]
                       {:schema nil, :name table-name}))})))
 
-
 ;;; ### DruidrDriver Class Definition
 
 (defrecord DruidDriver []
@@ -145,22 +143,22 @@
   (getName [_] "Druid"))
 
 (u/strict-extend DruidDriver
-  driver/IDriver
-  (merge driver/IDriverDefaultsMixin
-         {:can-connect?      (u/drop-first-arg can-connect?)
-          :describe-database (u/drop-first-arg describe-database)
-          :describe-table    (u/drop-first-arg describe-table)
-          :details-fields    (constantly (ssh/with-tunnel-config
-                                           [{:name         "host"
-                                             :display-name "Host"
-                                             :default      "http://localhost"}
-                                            {:name         "port"
-                                             :display-name "Broker node port"
-                                             :type         :integer
-                                             :default      8082}]))
-          :execute-query     (fn [_ query] (qp/execute-query do-query-with-cancellation query))
-          :features          (constantly #{:basic-aggregations :set-timezone :expression-aggregations})
-          :mbql->native      (u/drop-first-arg qp/mbql->native)}))
+                 driver/IDriver
+                 (merge driver/IDriverDefaultsMixin
+                        {:can-connect?      (u/drop-first-arg can-connect?)
+                         :describe-database (u/drop-first-arg describe-database)
+                         :describe-table    (u/drop-first-arg describe-table)
+                         :details-fields    (constantly (ssh/with-tunnel-config
+                                                          [{:name         "host"
+                                                            :display-name "Host"
+                                                            :default      "http://localhost"}
+                                                           {:name         "port"
+                                                            :display-name "Broker node port"
+                                                            :type         :integer
+                                                            :default      8082}]))
+                         :execute-query     (fn [_ query] (qp/execute-query do-query-with-cancellation query))
+                         :features          (constantly #{:basic-aggregations :set-timezone :expression-aggregations :native-parameters})
+                         :mbql->native      (u/drop-first-arg qp/mbql->native)}))
 
 (defn -init-driver
   "Register the druid driver."

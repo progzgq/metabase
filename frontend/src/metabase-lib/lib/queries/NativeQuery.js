@@ -117,9 +117,10 @@ export default class NativeQuery extends AtomicQuery {
 
   supportsNativeParameters(): boolean {
     const database = this.database();
-    return (
-      database != null && _.contains(database.features, "native-parameters")
-    );
+    return database != null
+    // return (
+    //   database != null && _.contains(database.features, "native-parameters")
+    // );
   }
 
   table(): ?Table {

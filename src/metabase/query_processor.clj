@@ -125,7 +125,7 @@
   (let [results ((qp-pipeline identity) query)]
     (or (get-in results [:data :native_form])
         (throw (ex-info "No native form returned."
-                 results)))))
+                        results)))))
 
 (defn process-query
   "A pipeline of various QP functions (including middleware) that are used to process MB queries."
@@ -165,8 +165,8 @@
   "Save a `QueryExecution` and update the average execution time for the corresponding `Query`."
   [query-execution]
   (u/prog1 query-execution
-    (query/update-average-execution-time! (:hash query-execution) (:running_time query-execution))
-    (db/insert! QueryExecution (dissoc query-execution :json_query))))
+           (query/update-average-execution-time! (:hash query-execution) (:running_time query-execution))
+           (db/insert! QueryExecution (dissoc query-execution :json_query))))
 
 (defn- save-and-return-failed-query!
   "Save QueryExecution state and construct a failed query response"
@@ -190,9 +190,9 @@
   "Save QueryExecution state and construct a completed (successful) query response"
   [query-execution query-result]
   (let [query-execution (-> (assoc query-execution
-                              :running_time (- (System/currentTimeMillis)
-                                               (:start_time_millis query-execution))
-                              :result_rows  (get query-result :row_count 0))
+                                   :running_time (- (System/currentTimeMillis)
+                                                    (:start_time_millis query-execution))
+                                   :result_rows  (get query-result :row_count 0))
                             (dissoc :start_time_millis))]
     ;; only insert a new record into QueryExecution if the results *were not* cached (i.e., only if a Query was
     ;; actually ran)
@@ -204,7 +204,6 @@
            {:status                 :completed
             :average_execution_time (when (:cached query-result)
                                       (query/average-execution-time-ms (:hash query-execution)))})))
-
 
 (defn- assert-query-status-successful
   "Make sure QUERY-RESULT `:status` is something other than `nil`or `:failed`, or throw an Exception."
@@ -250,8 +249,8 @@
         (save-and-return-successful-query! query-execution result))
       (catch Throwable e
         (log/warn (u/format-color 'red "Query failure: %s\n%s"
-                    (.getMessage e)
-                    (u/pprint-to-str (u/filtered-stacktrace e))))
+                                  (.getMessage e)
+                                  (u/pprint-to-str (u/filtered-stacktrace e))))
         (save-and-return-failed-query! query-execution (.getMessage e))))))
 
 (def ^:private DatasetQueryOptions
@@ -286,8 +285,8 @@
   {:style/indent 1}
   [query, options :- DatasetQueryOptions]
   (run-and-save-query! (assoc query :info (assoc options
-                                            :query-hash (qputil/query-hash query)
-                                            :query-type (if (qputil/mbql-query? query) "MBQL" "native")))))
+                                                 :query-hash (qputil/query-hash query)
+                                                 :query-type (if (qputil/mbql-query? query) "MBQL" "native")))))
 
 (def ^:private ^:const max-results-bare-rows
   "Maximum number of rows to return specifically on :rows type queries via the API."
@@ -303,7 +302,7 @@
    :max-results-bare-rows max-results-bare-rows})
 
 (s/defn process-query-and-save-with-max!
-  "Same as `process-query-and-save-execution!` but will include the default max rows returned as a constraint"
+  "入口Same as `process-query-and-save-execution!` but will include the default max rows returned as a constraint"
   {:style/indent 1}
   [query, options :- DatasetQueryOptions]
   (process-query-and-save-execution! (assoc query :constraints default-query-constraints) options))
