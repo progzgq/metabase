@@ -13,7 +13,7 @@
              [sql :as sql-params]]
             [metabase.util :as u]))
 
-(defn- is-druid-query [query-dict] (str/includes? (str (get-in query-dict [:driver])) "ruid"))
+(defn- is-druid-query [query-dict] (and (str/includes? (str (get-in query-dict [:driver])) "ruid") (> (count (get-in query-dict [:parameters])) 0)))
 
 (defn- expand-parameters*
   "Expand any :parameters set on the QUERY-DICT and apply them to the query definition.
