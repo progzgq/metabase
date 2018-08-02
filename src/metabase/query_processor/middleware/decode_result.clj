@@ -5,6 +5,7 @@
               [metabase.query-processor.util :as qputil]
               [clojure.tools.logging :as log]
               [metabase.util :as u]
+              [metabase.config :as config]
               schema.utils)
     (:import [schema.utils NamedError ValidationError]
         [javax.crypto Cipher KeyGenerator SecretKey]
@@ -62,9 +63,10 @@
 (defn- decode-data [data]
     (log/info (u/format-color 'red "begin decode_data:\n%s" data))
     (if (is-hexstr data)
-        (try (decrypt data "!#Ai&N~lwQKnBcDA")
+        (let [key (config/config-str :mb-decode-key)]
+            (try (decrypt data key)
             (catch Throwable e
-                data))
+                data)))
         data
     ))
     
