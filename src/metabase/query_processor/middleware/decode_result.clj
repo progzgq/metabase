@@ -60,7 +60,7 @@
 ;                     (log/info (u/format-color 'red "after replace_druid_params: new-query:%s" new-query))
 ;                     (assoc m :query new-query))) ori_query param-key->value)))
 
-(defn- decode-data [data]
+(defn- decode-text [data]
     (log/info (u/format-color 'red "begin decode_data:\n%s" data))
     (if (is-hexstr data)
         (let [key (config/config-str :mb-decode-key)]
@@ -72,16 +72,13 @@
     
 
 (defn- decode-row [row] 
-    (map decode-data row)
-    )
+    (map decode-text row))
 
-(defn- decode-rows [results]
-    (let [rows (get-in results [:data :rows])]
-        (map decode-row rows)
-        ))
+(defn- decode-rows [rows]
+    (map decode-row rows))
 
 (defn- decode_data [results]
-    (assoc (get-in results [:data]) :rows (decode-rows results))
+    (assoc (get-in results [:data]) :rows (decode-rows (get-in results [:data :rows])))
 )
     
 (defn decode
