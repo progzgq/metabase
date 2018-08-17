@@ -61,7 +61,7 @@
 ;                     (assoc m :query new-query))) ori_query param-key->value)))
 
 (defn- decode-text [data]
-    (log/info (u/format-color 'red "begin decode_data:\n%s" data))
+    (log/debug (u/format-color 'red "begin decode_data:\n%s" data))
     (if (is-hexstr data)
         (let [key (config/config-str :mb-decode-key)]
             (try (decrypt data key)
