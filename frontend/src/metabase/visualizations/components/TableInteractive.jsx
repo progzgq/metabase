@@ -294,9 +294,10 @@ export default class TableInteractive extends Component {
   }
 
   cellRenderer = ({ key, style, rowIndex, columnIndex }: CellRendererProps) => {
-    const { data, isPivoted } = this.props;
+    const { data, isPivoted, settings } = this.props;
     const { dragColIndex } = this.state;
     const { rows, cols } = data;
+    const getCellBackgroundColor = settings["table._cell_background_getter"];
 
     const column = cols[columnIndex];
     const row = rows[rowIndex];
@@ -309,6 +310,9 @@ export default class TableInteractive extends Component {
       isPivoted,
     );
     const isClickable = this.visualizationIsClickable(clicked);
+    const backgroundColor =
+      getCellBackgroundColor &&
+      getCellBackgroundColor(value, rowIndex, column.name);
 
     return (
       <div
@@ -319,6 +323,7 @@ export default class TableInteractive extends Component {
           left: this.getColumnLeft(style, columnIndex),
           // add a transition while dragging column
           transition: dragColIndex != null ? "left 200ms" : null,
+          backgroundColor,
         }}
         className={cx("TableInteractive-cellWrapper", {
           "TableInteractive-cellWrapper--firstColumn": columnIndex === 0,
@@ -388,7 +393,6 @@ export default class TableInteractive extends Component {
     const { dragColIndex, columnPositions } = this.state;
     const { cols } = this.props.data;
     const indexes = cols.map((col, index) => index);
-    // $FlowFixMe: inner indexes.splice should always return an index
     indexes.splice(dragColNewIndex, 0, indexes.splice(dragColIndex, 1)[0]);
     let left = 0;
     const lefts = indexes.map(index => {
@@ -411,7 +415,6 @@ export default class TableInteractive extends Component {
 
   tableHeaderRenderer = ({ key, style, columnIndex }: CellRendererProps) => {
     const { sort, isPivoted } = this.props;
-    // $FlowFixMe: not sure why flow has a problem with this
     const { cols } = this.props.data;
     const column = cols[columnIndex];
 
