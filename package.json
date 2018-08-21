@@ -181,22 +181,15 @@
         "build-watch": "yarn && webpack --watch",
         "build-hot": "yarn && NODE_ENV=hot webpack-dev-server --progress",
         "build-stats": "yarn && webpack --json > stats.json",
-<<<<<<< HEAD
-=======
-    "build-shared": "yarn && webpack --config webpack.shared.config.js",
->>>>>>> meta-0.30.1
-    "start": "yarn build && lein ring server",
+        "build-shared": "yarn && webpack --config webpack.shared.config.js",
+        "start": "yarn build && lein ring server",
         "precommit": "lint-staged",
         "preinstall": "echo $npm_execpath | grep -q yarn || echo '\\033[0;33mSorry, npm is not supported. Please use Yarn (https://yarnpkg.com/).\\033[0m'",
         "prettier": "prettier --write 'frontend/**/*.{js,jsx,css}'",
-<<<<<<< HEAD
-    "docs": "documentation build -f html -o frontend/docs frontend/src/metabase-lib/lib/**"
-=======
-    "docs": "documentation build -f html -o frontend/docs frontend/src/metabase-lib/lib/**",
+        "docs": "documentation build -f html -o frontend/docs frontend/src/metabase-lib/lib/**",
         "ci": "yarn ci-frontend && yarn ci-backend",
         "ci-frontend": "yarn lint && yarn flow && yarn test",
         "ci-backend": "lein docstring-checker && lein bikeshed && lein eastwood && lein test"
->>>>>>> meta-0.30.1
     },
     "lint-staged": {
         "frontend/**/*.{js,jsx,css}": [
