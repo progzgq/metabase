@@ -15,8 +15,6 @@
              [embed :as embed]
              [field :as field]
              [geojson :as geojson]
-             [getting-started :as getting-started]
-             [label :as label]
              [ldap :as ldap]
              [metric :as metric]
              [notify :as notify]
@@ -25,6 +23,7 @@
              [public :as public]
              [pulse :as pulse]
              [revision :as revision]
+             [search :as search]
              [segment :as segment]
              [session :as session]
              [setting :as setting]
@@ -67,9 +66,7 @@
   (context "/email"                [] (+auth email/routes))
   (context "/embed"                [] (+message-only-exceptions embed/routes))
   (context "/field"                [] (+auth field/routes))
-  (context "/getting_started"      [] (+auth getting-started/routes))
   (context "/geojson"              [] (+auth geojson/routes))
-  (context "/label"                [] (+auth label/routes))
   (context "/ldap"                 [] (+auth ldap/routes))
   (context "/metric"               [] (+auth metric/routes))
   (context "/notify"               [] (+apikey notify/routes))
@@ -78,6 +75,7 @@
   (context "/public"               [] (+generic-exceptions public/routes))
   (context "/pulse"                [] (+auth pulse/routes))
   (context "/revision"             [] (+auth revision/routes))
+  (context "/search"               [] (+auth search/routes))
   (context "/segment"              [] (+auth segment/routes))
   (context "/session"              [] session/routes)
   (context "/setting"              [] (+auth setting/routes))
