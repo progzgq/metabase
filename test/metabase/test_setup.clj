@@ -9,6 +9,8 @@
              [core :as core]
              [db :as mdb]
              [driver :as driver]
+             [plugins :as plugins]
+             [task :as task]
              [util :as u]]
             [metabase.core.initialization-status :as init-status]
             [metabase.models.setting :as setting]))
@@ -70,10 +72,14 @@
   ;; Start Jetty in the BG so if test setup fails we have an easier time debugging it -- it's trickier to debug things
   ;; on a BG thread
   (let [start-jetty! (future (core/start-jetty!))]
-
     (try
+      (plugins/setup-plugins!)
       (log/info (format "Setting up %s test DB and running migrations..." (name (mdb/db-type))))
       (mdb/setup-db! :auto-migrate true)
+      ;; we don't want to actually start the task scheduler (we don't want sync or other stuff happening in the BG
+      ;; while running tests), but we still need to make sure it sets itself up properly so tasks can get scheduled
+      ;; without throwing Exceptions
+      (#'task/set-jdbc-backend-properties!)
       (setting/set! :site-name "Metabase Test")
       (init-status/set-complete!)
 
