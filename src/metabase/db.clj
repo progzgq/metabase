@@ -107,7 +107,6 @@
      :mysql    (dbspec/mysql    (assoc db-details :db (:dbname db-details)))
      :postgres (dbspec/postgres (assoc db-details :db (:dbname db-details))))))
 
-
 ;;; +----------------------------------------------------------------------------------------------------------------+
 ;;; |                                                    MIGRATE!                                                    |
 ;;; +----------------------------------------------------------------------------------------------------------------+
@@ -153,14 +152,14 @@
   chance the lock will end up clearing up so we can run migrations normally."
   [^Liquibase liquibase]
   (u/auto-retry 5
-    (when (migration-lock-exists? liquibase)
-      (Thread/sleep 2000)
-      (throw
-       (LockException.
-        (str
-         (trs "Database has migration lock; cannot run migrations.")
-         " "
-         (trs "You can force-release these locks by running `java -jar metabase.jar migrate release-locks`.")))))))
+                (when (migration-lock-exists? liquibase)
+                  (Thread/sleep 2000)
+                  (throw
+                   (LockException.
+                    (str
+                     (trs "Database has migration lock; cannot run migrations.")
+                     " "
+                     (trs "You can force-release these locks by running `java -jar metabase.jar migrate release-locks`.")))))))
 
 (defn- migrate-up-if-needed!
   "Run any unrun `liquibase` migrations, if needed.
@@ -308,7 +307,6 @@
            (release-lock-if-needed! liquibase)
            (throw e)))))))
 
-
 ;;; +----------------------------------------------------------------------------------------------------------------+
 ;;; |                                      CONNECTION POOLS & TRANSACTION STUFF                                      |
 ;;; +----------------------------------------------------------------------------------------------------------------+
@@ -330,14 +328,14 @@
                  (.setMaxPoolSize                  15)
                  (.setIdleConnectionTestPeriod     idle-connection-test-period)
                  (.setTestConnectionOnCheckin      false)
-                 (.setTestConnectionOnCheckout     false)
+                 (.setTestConnectionOnCheckout     true)
                  (.setPreferredTestQuery           nil)
                  (.setProperties                   (u/prog1 (Properties.)
-                                                     (doseq [[k v] (dissoc spec :classname :subprotocol :subname
-                                                                                :naming :delimiters :alias-delimiter
-                                                                                :excess-timeout :minimum-pool-size
-                                                                                :idle-connection-test-period)]
-                                                       (.setProperty <> (name k) (str v))))))})
+                                                            (doseq [[k v] (dissoc spec :classname :subprotocol :subname
+                                                                                  :naming :delimiters :alias-delimiter
+                                                                                  :excess-timeout :minimum-pool-size
+                                                                                  :idle-connection-test-period)]
+                                                              (.setProperty <> (name k) (str v))))))})
 
 (defn- create-connection-pool! [spec]
   (db/set-default-quoting-style! (case (db-type)
@@ -345,7 +343,6 @@
                                    :h2       :h2
                                    :mysql    :mysql))
   (db/set-default-db-connection! (connection-pool spec)))
-
 
 ;;; +----------------------------------------------------------------------------------------------------------------+
 ;;; |                                                    DB SETUP                                                    |
@@ -387,9 +384,8 @@
    (assert (binding [*allow-potentailly-unsafe-connections* true]
              (require 'metabase.driver)
              ((resolve 'metabase.driver/can-connect-with-details?) engine details))
-     (format "Unable to connect to Metabase %s DB." (name engine)))
+           (format "Unable to connect to Metabase %s DB." (name engine)))
    (log/info (trs "Verify Database Connection ... ") (u/emoji "✅"))))
-
 
 (def ^:dynamic ^Boolean *disable-data-migrations*
   "Should we skip running data migrations when setting up the DB? (Default is `false`).
@@ -429,7 +425,7 @@
     ;; second time; this time, it will either run into the lock, or see that there are no migrations to run in the
     ;; first place, and launch normally.
     (u/auto-retry 1
-      (migrate! db-details :up))
+                  (migrate! db-details :up))
     (print-migrations-and-quit! db-details))
   (log/info (trs "Database Migrations Current ... ") (u/emoji "✅")))
 
@@ -458,7 +454,6 @@
   (when-not @setup-db-has-been-called?
     (apply setup-db! args)))
 
-
 ;;; Various convenience fns (experiMENTAL)
 
 (defn join
@@ -469,8 +464,7 @@
        :active true)"
   [[source-entity fk] [dest-entity pk]]
   {:left-join [(db/resolve-model dest-entity) [:= (db/qualify source-entity fk)
-                                                  (db/qualify dest-entity pk)]]})
-
+                                               (db/qualify dest-entity pk)]]})
 
 (defn- type-keyword->descendants
   "Return a set of descendents of Metabase `type-keyword`. This includes `type-keyword` itself, so the set will always
