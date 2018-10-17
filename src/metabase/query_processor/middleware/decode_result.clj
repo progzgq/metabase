@@ -1,57 +1,55 @@
 (ns metabase.query-processor.middleware.decode_result
-    "Middleware for catching exceptions thrown by the query processor and returning them in a friendlier format."
-    (:require [metabase.query-processor.middleware
-               [source-table :as source-table]]
-              [metabase.query-processor.util :as qputil]
-              [clojure.tools.logging :as log]
-              [metabase.util :as u]
-              [metabase.config :as config]
-              schema.utils)
-    (:import [schema.utils NamedError ValidationError]
-        [javax.crypto Cipher KeyGenerator SecretKey]
-        [javax.crypto.spec  SecretKeySpec]
-        [java.security  SecureRandom]))
+  "Middleware for catching exceptions thrown by the query processor and returning them in a friendlier format."
+  (:require [metabase.query-processor.middleware
+             [source-table :as source-table]]
+            [metabase.query-processor.util :as qputil]
+            [clojure.tools.logging :as log]
+            [metabase.util :as u]
+            [metabase.config :as config]
+            schema.utils)
+  (:import [schema.utils NamedError ValidationError]
+           [javax.crypto Cipher KeyGenerator SecretKey]
+           [javax.crypto.spec  SecretKeySpec]
+           [java.security  SecureRandom]))
 
 (defn get-bytes [s]
-    (.getBytes s "UTF-8"))
+  (.getBytes s "UTF-8"))
 
 (defn hexify [s]
-    (apply str (map #(format "%02x" %) (get-bytes s))))
-      
+  (apply str (map #(format "%02x" %) (get-bytes s))))
+
 (defn unhexify [s]
-    (let [bytes (into-array Byte/TYPE
-                    (map (fn [[x y]]
-                        (unchecked-byte (Integer/parseInt (str x y) 16)))
-                            (partition 2 s)))]
-        bytes))
-        
-        
+  (let [bytes (into-array Byte/TYPE
+                          (map (fn [[x y]]
+                                 (unchecked-byte (Integer/parseInt (str x y) 16)))
+                               (partition 2 s)))]
+    bytes))
+
 (defn get-raw-key [seed]
-    (let [keygen (KeyGenerator/getInstance "AES")
-            sr (SecureRandom/getInstance "SHA1PRNG")]
-        (.setSeed sr (get-bytes seed))
-        (.init keygen 128 sr)
-        (.. keygen generateKey getEncoded)))
-          
+  (let [keygen (KeyGenerator/getInstance "AES")
+        sr (SecureRandom/getInstance "SHA1PRNG")]
+    (.setSeed sr (get-bytes seed))
+    (.init keygen 128 sr)
+    (.. keygen generateKey getEncoded)))
+
 (defn get-cipher [mode seed]
-    (let [key-spec (SecretKeySpec. (get-bytes seed) "AES")
+  (let [key-spec (SecretKeySpec. (get-bytes seed) "AES")
         cipher (Cipher/getInstance "AES")]
     (.init cipher mode key-spec)
     cipher))
 
 (defn encrypt [text key]
-    (let [bytes (get-bytes text)
-            cipher (get-cipher Cipher/ENCRYPT_MODE key)]
-        (hexify (.doFinal cipher bytes))))
+  (let [bytes (get-bytes text)
+        cipher (get-cipher Cipher/ENCRYPT_MODE key)]
+    (hexify (.doFinal cipher bytes))))
 
 (defn decrypt [text key]
-    (let [cipher (get-cipher Cipher/DECRYPT_MODE key)]
-        (String. (.doFinal cipher (unhexify text)))))
+  (let [cipher (get-cipher Cipher/DECRYPT_MODE key)]
+    (String. (.doFinal cipher (unhexify text)))))
 
 (defn is-hexstr [s]
-    (and (string? s) (some? (re-find #"^[0-9,a-f,A-F]{16,}$" s)))
-    )
-    
+  (and (string? s) (some? (re-find #"^[0-9,a-f,A-F]{16,}$" s))))
+
 ; (s/defn parse-druid-template [sql param-key->value]
 ;     (let [ori_query {:query sql}]
 ;         ; (assoc ori_query :query (replace_druid_params (get-in ori_query [:query]) "countrynn" "Russia" "location/country"))))
@@ -61,30 +59,26 @@
 ;                     (assoc m :query new-query))) ori_query param-key->value)))
 
 (defn- decode-text [data]
-    (log/debug (u/format-color 'red "begin decode_data:\n%s" data))
-    (if (is-hexstr data)
-        (let [key (config/config-str :mb-decode-key)]
-            (try (decrypt data key)
-            (catch Throwable e
-                data)))
-        data
-    ))
-    
+  (log/debug (u/format-color 'red "begin decode_data:\n%s" data))
+  (if (is-hexstr data)
+    (let [key (config/config-str :mb-decode-key)]
+      (try (decrypt data key)
+           (catch Throwable e
+             data)))
+    data))
 
-(defn- decode-row [row] 
-    (map decode-text row))
+(defn- decode-row [row]
+  (map decode-text row))
 
 (defn- decode-rows [rows]
-    (map decode-row rows))
+  (map decode-row rows))
 
 (defn- decode_data [results]
-    (assoc (get-in results [:data]) :rows (decode-rows (get-in results [:data :rows])))
-)
-    
+  (assoc (get-in results [:data]) :rows (decode-rows (get-in results [:data :rows]))))
+
 (defn decode
-    [qp]
-    (fn [query]
-        (let [result (qp query)]
-            (log/info (u/format-color 'red "begin decode:\n%s" result))
-            (assoc result :data (decode_data result))))
-        )
+  [qp]
+  (fn [query]
+    (let [result (qp query)]
+      (log/debug (u/format-color 'red "begin decode:\n%s" result))
+      (assoc result :data (decode_data result)))))
