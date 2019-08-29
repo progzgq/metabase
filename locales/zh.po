@@ -5050,7 +5050,7 @@ msgstr "数据行太多，需要一段时间才能下载。"
 
 #: frontend/src/metabase/query_builder/components/QueryDownloadWidget.jsx:53
 msgid "The maximum download size is 1 million rows."
-msgstr "下载上线是1百万行"
+msgstr "下载上限是1百万行"
 
 #: frontend/src/metabase/query_builder/components/QueryHeader.jsx:232
 msgid "Edit question"
